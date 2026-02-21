@@ -31,3 +31,6 @@ build/
 .idea/
 *.iml
 .vscode/
+
+# Local config (contains secrets)
+application-local.yml
