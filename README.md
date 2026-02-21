@@ -171,42 +171,7 @@
 * HTTPS 통신
 * 입력값 검증
 
----
 
-## ✔️ 기대 효과
-
-* 운영 자동화를 통한 관리 비용 절감
-* 예약·정산 오류 감소
-* 데이터 신뢰도 향상
-* 사용자 만족도 향상
-* 관리자 업무 효율 증대
-* 다지점 확장 기반 마련
-
----
-
-## ✔️ 프로젝트 사용 도구
-
-* 형상 관리: GitHub
-* 이슈 관리: GitHub Issues / Projects
-* 커뮤니케이션: Slack
-* 디자인: Figma
-* CI: GitHub Actions
-* CD: ArgoCD
-* 모니터링: CloudWatch / Prometheus
-* 문서화: Notion / Swagger
-
----
-
-## ✔️ 개발 도구
-
-* IntelliJ IDEA
-* Visual Studio Code
-* Docker Desktop
-* Postman
-* DBeaver
-* Redis Insight
-
----
 
 ## ✔️ 개발 환경
 
@@ -279,5 +244,48 @@
 * 다지점 통합 관리
 * 관리자 대시보드 고도화
 * 결제 PG 연동 확대
+
+---
+
+## ✔️ 빠른 시작 (로컬 실행)
+
+### 요구 사항
+
+* Java 21
+* PostgreSQL (로컬 또는 Docker)
+
+### 1. DB 생성
+
+```bash
+createdb gx
+# 또는 Docker: docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gx postgres:16
+```
+
+### 2. 애플리케이션 실행
+
+* Redis/RabbitMQ 없이 실행 (로컬 프로파일):
+
+```bash
+./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+* 또는 Gradle이 설치된 경우:
+
+```bash
+gradle bootRun --args='--spring.profiles.active=local'
+```
+
+기본 설정: `localhost:5432`, DB명 `gx`, 사용자/비밀번호 `postgres` (환경 변수 `DB_USERNAME`, `DB_PASSWORD`로 변경 가능).
+
+### 3. 데모 화면
+
+브라우저에서 **http://localhost:8080/demo/index.html** 접속.
+
+* **회원가입** → **로그인** → **회원권 10회 발급(데모)** 클릭 → **예약 가능 세션**에서 예약 → **내 예약**에서 취소 가능.
+
+### 4. API 문서
+
+* Swagger UI: **http://localhost:8080/swagger-ui.html**
+* OpenAPI JSON: **http://localhost:8080/v3/api-docs**
 
 ---
