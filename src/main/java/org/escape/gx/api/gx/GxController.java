@@ -85,11 +85,14 @@ public class GxController {
     private GxSessionResponse toSessionResponse(GxSession s) {
         GxClassInfo info = s.getGxClassInfo();
         String name = info != null ? info.getSessionName() : null;
-        var start = info != null ? info.getSessionStartAt() : null;
+        // 세션에 직접 날짜가 있으면 우선 사용 (반복 강의), 없으면 기준정보 사용
+        var start = s.getSessionStartAt() != null ? s.getSessionStartAt()
+                : (info != null ? info.getSessionStartAt() : null);
         var end = info != null ? info.getSessionEndAt() : null;
         Integer max = info != null ? info.getMaxCapacity() : null;
         Integer required = info != null ? info.getRequiredMembershipCount() : null;
         ClassStatus status = s.getStatus();
+        String instructorUserId = info != null ? info.getInstructorUserId() : null;
         return new GxSessionResponse(
                 s.getGxSessionId(),
                 s.getGxClassInfoId(),
@@ -99,17 +102,29 @@ public class GxController {
                 max,
                 s.getReservedCount(),
                 required,
-                status != null ? status.name() : null
+                status != null ? status.name() : null,
+                instructorUserId
         );
     }
 
     private ReservationResponse toReservationResponse(Reservation r) {
+        GxSession session = r.getGxSession();
+        String sessionName = null;
+        java.time.LocalDateTime sessionStartAt = null;
+        if (session != null) {
+            sessionStartAt = session.getSessionStartAt();
+            GxClassInfo info = session.getGxClassInfo();
+            if (info != null) {
+                sessionName = info.getSessionName();
+                if (sessionStartAt == null) sessionStartAt = info.getSessionStartAt();
+            }
+        }
         return new ReservationResponse(
                 r.getReservationId(),
                 r.getUserId(),
                 r.getGxSessionId(),
-                null,
-                null,
+                sessionName,
+                sessionStartAt,
                 r.getStatus() != null ? r.getStatus().name() : null,
                 r.getDeductCount(),
                 r.getCreatedAt()

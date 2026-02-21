@@ -80,4 +80,23 @@ public class GxClassInfo {
     public int getRequiredCount() {
         return requiredMembershipCount != null ? requiredMembershipCount : 1;
     }
+
+    /**
+     * 강의 기준정보 수정.
+     *
+     * @param sessionName    강의명
+     * @param sessionStartAt 강의 기간 시작일시
+     * @param sessionEndAt   강의 기간 종료일시
+     * @param maxCapacity    최대 정원
+     * @param dayOfWeek      요일 (1=월 ~ 7=일)
+     */
+    public void update(String sessionName, LocalDateTime sessionStartAt, LocalDateTime sessionEndAt,
+                       Integer maxCapacity, Integer dayOfWeek) {
+        this.sessionName = sessionName;
+        this.sessionStartAt = sessionStartAt;
+        this.sessionEndAt = sessionEndAt;
+        if (maxCapacity != null) this.maxCapacity = maxCapacity;
+        if (dayOfWeek != null) this.dayOfWeek = dayOfWeek;
+        this.updatedAt = Instant.now();
+    }
 }

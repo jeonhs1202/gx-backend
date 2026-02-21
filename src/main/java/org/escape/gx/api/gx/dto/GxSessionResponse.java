@@ -1,6 +1,5 @@
 package org.escape.gx.api.gx.dto;
 
-import java.time.Instant;
 import java.time.LocalDateTime;
 
 /**
@@ -18,6 +17,7 @@ public record GxSessionResponse(
         Integer maxCapacity,
         Integer reservedCount,
         Integer requiredMembershipCount,
-        String status
+        String status,
+        String instructorUserId
 ) {
 }

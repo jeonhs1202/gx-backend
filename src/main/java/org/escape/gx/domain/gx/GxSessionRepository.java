@@ -28,6 +28,10 @@ public interface GxSessionRepository extends JpaRepository<GxSession, String> {
     @Query("select s from GxSession s where s.gxSessionId = :id")
     Optional<GxSession> findByIdForUpdate(@Param("id") String gxSessionId);
 
-    @Query("select s from GxSession s join fetch s.gxClassInfo g where g.sessionStartAt > :now order by g.sessionStartAt asc")
-    List<GxSession> findUpcomingWithClassInfo(@Param("now") LocalDateTime now);
+    @Query("select s from GxSession s join fetch s.gxClassInfo g " +
+           "where coalesce(s.sessionStartAt, g.sessionStartAt) > :now " +
+           "and coalesce(s.sessionStartAt, g.sessionStartAt) <= :weekLater " +
+           "order by coalesce(s.sessionStartAt, g.sessionStartAt) asc")
+    List<GxSession> findUpcomingWithClassInfo(@Param("now") LocalDateTime now,
+                                              @Param("weekLater") LocalDateTime weekLater);
 }

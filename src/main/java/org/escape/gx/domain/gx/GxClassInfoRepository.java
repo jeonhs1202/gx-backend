@@ -13,4 +13,6 @@ import java.util.List;
 public interface GxClassInfoRepository extends JpaRepository<GxClassInfo, String> {
 
     List<GxClassInfo> findAllByOrderBySessionStartAtAsc();
+
+    List<GxClassInfo> findByInstructorUserIdOrderBySessionStartAtAsc(String instructorUserId);
 }

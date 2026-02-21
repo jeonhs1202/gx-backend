@@ -1,0 +1,233 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>회원가입 - GX 예약 시스템</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #1a1a20;
+      --border: #2a2a32;
+      --text: #e8e8ed;
+      --muted: #888;
+      --accent: #00d4aa;
+      --accent-hover: #00b894;
+      --danger: #ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      padding: 24px;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 400px;
+    }
+    h1 {
+      font-size: 1.6rem;
+      margin: 0 0 8px;
+      color: var(--accent);
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0 0 32px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    .optional {
+      font-size: 0.75rem;
+      color: var(--border);
+      margin-left: 4px;
+    }
+    input {
+      width: 100%;
+      font-size: 1rem;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn {
+      width: 100%;
+      font-size: 1rem;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      margin-top: 10px;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--text); }
+    .message {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .message.error { background: rgba(255,107,107,0.15); color: var(--danger); display: block; }
+    .message.success { background: rgba(0,212,170,0.15); color: var(--accent); display: block; }
+    .hint {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: -14px;
+      margin-bottom: 18px;
+    }
+    select {
+      width: 100%;
+      font-size: 1rem;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 18px;
+      appearance: none;
+    }
+    select:focus { outline: none; border-color: var(--accent); }
+    .role-desc {
+      font-size: 0.8rem;
+      color: var(--muted);
+      margin-top: -14px;
+      margin-bottom: 18px;
+    }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>회원가입</h1>
+    <p class="subtitle">GX 예약 시스템에 오신 것을 환영합니다</p>
+
+    <div id="message" class="message"></div>
+
+    <label for="email">이메일</label>
+    <input type="email" id="email" placeholder="email@example.com" autocomplete="email">
+
+    <label for="password">비밀번호</label>
+    <input type="password" id="password" placeholder="8자 이상 입력" autocomplete="new-password">
+    <p class="hint">비밀번호는 8자 이상이어야 합니다.</p>
+
+    <label for="name">이름</label>
+    <input type="text" id="name" placeholder="홍길동" autocomplete="name">
+
+    <label for="phone">전화번호</label>
+    <input type="tel" id="phone" placeholder="010-0000-0000" autocomplete="tel">
+
+    <label for="accountCode">회원 구분</label>
+    <select id="accountCode">
+      <option value="USER">일반 회원</option>
+      <option value="INSTRUCTOR">강사</option>
+      <option value="ADMIN">관리자</option>
+    </select>
+    <p class="role-desc" id="roleDesc">GX 세션을 예약하고 이용할 수 있습니다.</p>
+
+    <button class="btn btn-primary" id="btnRegister">회원가입</button>
+    <button class="btn btn-secondary" id="btnGoLogin">이미 계정이 있으신가요? 로그인</button>
+  </div>
+
+  <script>
+    const msgEl = document.getElementById('message');
+    const roleDescs = {
+      USER: 'GX 세션을 예약하고 이용할 수 있습니다.',
+      INSTRUCTOR: '강의를 등록·관리하고 세션을 운영할 수 있습니다.',
+      ADMIN: '전체 회원 및 강의를 관리할 수 있습니다.'
+    };
+
+    document.getElementById('accountCode').onchange = function () {
+      document.getElementById('roleDesc').textContent = roleDescs[this.value] || '';
+    };
+
+    function showMsg(text, isError) {
+      msgEl.textContent = text;
+      msgEl.className = 'message ' + (isError ? 'error' : 'success');
+    }
+
+    document.getElementById('btnRegister').onclick = async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+      const name = document.getElementById('name').value.trim();
+      const phone = document.getElementById('phone').value.trim();
+      const accountCode = document.getElementById('accountCode').value;
+
+      if (!email || !password) {
+        showMsg('이메일과 비밀번호는 필수입니다.', true);
+        return;
+      }
+      if (password.length < 8) {
+        showMsg('비밀번호는 8자 이상이어야 합니다.', true);
+        return;
+      }
+      if (!name) {
+        showMsg('이름은 필수입니다.', true);
+        return;
+      }
+      if (!phone) {
+        showMsg('전화번호는 필수입니다.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password, name, phone, accountCode })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showMsg(data.message || '회원가입에 실패했습니다.', true);
+          return;
+        }
+
+        localStorage.setItem('gx_access_token', data.accessToken);
+        localStorage.setItem('gx_user_id', data.userId);
+        localStorage.setItem('gx_account_code', data.accountCode);
+        localStorage.setItem('gx_email', data.email);
+        localStorage.setItem('gx_name', data.name || '');
+        showMsg('회원가입이 완료되었습니다. 이동합니다...', false);
+        setTimeout(() => { location.href = '/demo/index.html'; }, 800);
+      } catch (e) {
+        showMsg('네트워크 오류가 발생했습니다.', true);
+      }
+    };
+
+    document.getElementById('btnGoLogin').onclick = () => {
+      location.href = '/demo/login.html';
+    };
+  </script>
+</body>
+</html>

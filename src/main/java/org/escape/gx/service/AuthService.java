@@ -45,10 +45,11 @@ public class AuthService {
         if (accountRepository.existsByEmail(request.email())) {
             throw new IllegalArgumentException("이미 등록된 이메일입니다.");
         }
+        AccountCode code = request.accountCode() != null ? request.accountCode() : AccountCode.USER;
         String userId = UUID.randomUUID().toString();
         Account account = Account.builder()
                 .userId(userId)
-                .accountCode(AccountCode.USER)
+                .accountCode(code)
                 .email(request.email())
                 .passwordHash(passwordEncoder.encode(request.password()))
                 .userStatus(UserStatus.ACTIVE)
@@ -63,9 +64,9 @@ public class AuthService {
 
         account.updateLastLogin();
         accountRepository.save(account);
-        String accessToken = jwtSupport.createAccessToken(account.getUserId(), account.getEmail());
+        String accessToken = jwtSupport.createAccessToken(account.getUserId(), account.getEmail(), code.name());
         String refreshToken = jwtSupport.createRefreshToken(account.getUserId());
-        return new TokenResponse(accessToken, refreshToken, userId, account.getEmail());
+        return new TokenResponse(accessToken, refreshToken, userId, account.getEmail(), code.name(), request.name());
     }
 
     @Transactional
@@ -82,9 +83,12 @@ public class AuthService {
         }
         account.updateLastLogin();
         accountRepository.save(account);
-        String accessToken = jwtSupport.createAccessToken(account.getUserId(), account.getEmail());
+        String accountCode = account.getAccountCode() != null ? account.getAccountCode().name() : AccountCode.USER.name();
+        String name = userProfileRepository.findById(account.getUserId())
+                .map(UserProfile::getName).orElse(null);
+        String accessToken = jwtSupport.createAccessToken(account.getUserId(), account.getEmail(), accountCode);
         String refreshToken = jwtSupport.createRefreshToken(account.getUserId());
-        return new TokenResponse(accessToken, refreshToken, account.getUserId(), account.getEmail());
+        return new TokenResponse(accessToken, refreshToken, account.getUserId(), account.getEmail(), accountCode, name);
     }
 
     public TokenResponse refreshToken(String refreshToken) {
@@ -95,8 +99,10 @@ public class AuthService {
         String userId = claims.getSubject();
         Account account = accountRepository.findById(userId)
                 .orElseThrow(() -> new IllegalArgumentException("사용자를 찾을 수 없습니다."));
-        String accessToken = jwtSupport.createAccessToken(account.getUserId(), account.getEmail());
+        String accountCode = account.getAccountCode() != null ? account.getAccountCode().name() : AccountCode.USER.name();
+        String name = userProfileRepository.findById(userId).map(UserProfile::getName).orElse(null);
+        String accessToken = jwtSupport.createAccessToken(account.getUserId(), account.getEmail(), accountCode);
         String newRefreshToken = jwtSupport.createRefreshToken(account.getUserId());
-        return new TokenResponse(accessToken, newRefreshToken, userId, account.getEmail());
+        return new TokenResponse(accessToken, newRefreshToken, userId, account.getEmail(), accountCode, name);
     }
 }

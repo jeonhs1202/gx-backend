@@ -3,6 +3,7 @@ package org.escape.gx.api.auth.dto;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
+import org.escape.gx.common.enums.AccountCode;
 
 /**
  * 회원가입 요청.
@@ -15,7 +16,10 @@ public record RegisterRequest(
         String email,
         @NotBlank @Size(min = 8)
         String password,
+        @NotBlank
         String name,
-        String phone
+        @NotBlank
+        String phone,
+        AccountCode accountCode
 ) {
 }

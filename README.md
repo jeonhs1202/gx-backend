@@ -254,28 +254,75 @@
 * Java 21
 * PostgreSQL (로컬 또는 Docker)
 
-### 1. DB 생성
+### 1. Java 21 설치
+
+Java 21이 필요합니다. 설치되어 있지 않다면:
 
 ```bash
-createdb gx
-# 또는 Docker: docker run -d -p 5432:5432 -e POSTGRES_PASSWORD=postgres -e POSTGRES_DB=gx postgres:16
+# Homebrew 사용 (macOS)
+brew install openjdk@21
+sudo ln -sfn $(brew --prefix openjdk@21)/libexec/openjdk.jdk /Library/Java/JavaVirtualMachines/openjdk-21.jdk
+
+# 설치 확인
+java -version  # "21.x.x" 출력 확인
 ```
 
-### 2. 애플리케이션 실행
+### 2. PostgreSQL 설정
 
-* Redis/RabbitMQ 없이 실행 (로컬 프로파일):
+애플리케이션은 기본적으로 `postgres` 유저로 DB에 접속합니다.
+
+#### 방법 A: postgres role 생성 (권장)
+
+macOS에서 Homebrew로 PostgreSQL을 설치한 경우, 기본 유저가 `postgres`가 아닌 **현재 맥 계정명**으로 생성됩니다.
+이 경우 아래와 같이 `postgres` role과 DB를 직접 생성해야 합니다.
+
+```bash
+# psql 접속 (맥 계정명으로 접속)
+psql postgres
+
+# psql 내에서 실행
+CREATE ROLE postgres WITH LOGIN SUPERUSER PASSWORD 'postgres';
+CREATE DATABASE gx OWNER postgres;
+\q
+```
+
+#### 방법 B: Docker로 실행
+
+```bash
+docker run -d \
+  --name gx-postgres \
+  -p 5432:5432 \
+  -e POSTGRES_USER=postgres \
+  -e POSTGRES_PASSWORD=postgres \
+  -e POSTGRES_DB=gx \
+  postgres:16
+```
+
+#### 방법 C: 환경 변수로 기존 유저 지정
+
+이미 다른 유저명으로 PostgreSQL이 설정된 경우:
+
+```bash
+# 현재 존재하는 유저 확인
+psql postgres -c '\du'
+
+# DB 생성
+createdb gx
+
+# 해당 유저명으로 실행
+DB_USERNAME=<유저명> DB_PASSWORD=<비밀번호> ./gradlew bootRun --args='--spring.profiles.active=local'
+```
+
+### 3. 애플리케이션 실행
+
+Redis / RabbitMQ 없이 PostgreSQL만으로 실행 (로컬 프로파일):
 
 ```bash
 ./gradlew bootRun --args='--spring.profiles.active=local'
 ```
 
-* 또는 Gradle이 설치된 경우:
-
-```bash
-gradle bootRun --args='--spring.profiles.active=local'
-```
-
-기본 설정: `localhost:5432`, DB명 `gx`, 사용자/비밀번호 `postgres` (환경 변수 `DB_USERNAME`, `DB_PASSWORD`로 변경 가능).
+기본 접속 설정: `localhost:5432`, DB명 `gx`, 사용자/비밀번호 `postgres`
+환경 변수 `DB_USERNAME`, `DB_PASSWORD`로 변경 가능.
 
 ### 3. 데모 화면
 

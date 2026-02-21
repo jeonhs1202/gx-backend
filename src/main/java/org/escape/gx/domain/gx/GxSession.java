@@ -16,6 +16,7 @@ import lombok.NoArgsConstructor;
 import org.escape.gx.common.enums.ClassStatus;
 
 import java.time.Instant;
+import java.time.LocalDateTime;
 
 /**
  * GX 클래스 세션 (실제 수업 일정).
@@ -40,6 +41,10 @@ public class GxSession {
     @JoinColumn(name = "gx_class_info_id", insertable = false, updatable = false)
     private GxClassInfo gxClassInfo;
 
+    /** 세션의 실제 시작 일시 (반복 강의의 경우 각 회차 날짜). */
+    @Column(name = "session_start_at")
+    private LocalDateTime sessionStartAt;
+
     @Column(name = "reserved_count")
     private Integer reservedCount;
 
@@ -54,9 +59,10 @@ public class GxSession {
     private Instant updatedAt;
 
     @Builder
-    public GxSession(String gxSessionId, String gxClassInfoId) {
+    public GxSession(String gxSessionId, String gxClassInfoId, LocalDateTime sessionStartAt) {
         this.gxSessionId = gxSessionId;
         this.gxClassInfoId = gxClassInfoId;
+        this.sessionStartAt = sessionStartAt;
         this.reservedCount = 0;
         this.status = ClassStatus.BEFORE_RESV;
         Instant now = Instant.now();

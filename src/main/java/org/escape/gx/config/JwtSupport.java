@@ -26,13 +26,14 @@ public class JwtSupport {
         this.key = Keys.hmacShaKeyFor(properties.secret().getBytes(StandardCharsets.UTF_8));
     }
 
-    public String createAccessToken(String userId, String email) {
+    public String createAccessToken(String userId, String email, String accountCode) {
         Date now = new Date();
         Date expiry = new Date(now.getTime() + properties.accessTokenValidity());
         return Jwts.builder()
                 .subject(userId)
                 .claim("email", email)
                 .claim("type", "access")
+                .claim("accountCode", accountCode)
                 .issuedAt(now)
                 .expiration(expiry)
                 .signWith(key)

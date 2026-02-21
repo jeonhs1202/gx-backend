@@ -1,0 +1,191 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>로그인 - GX 예약 시스템</title>
+  <style>
+    :root {
+      --bg: #0f0f12;
+      --surface: #1a1a20;
+      --border: #2a2a32;
+      --text: #e8e8ed;
+      --muted: #888;
+      --accent: #00d4aa;
+      --accent-hover: #00b894;
+      --danger: #ff6b6b;
+    }
+    * { box-sizing: border-box; }
+    body {
+      font-family: 'Segoe UI', system-ui, sans-serif;
+      background: var(--bg);
+      color: var(--text);
+      margin: 0;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .card {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 16px;
+      padding: 40px 36px;
+      width: 100%;
+      max-width: 400px;
+    }
+    h1 {
+      font-size: 1.6rem;
+      margin: 0 0 8px;
+      color: var(--accent);
+    }
+    .subtitle {
+      color: var(--muted);
+      font-size: 0.9rem;
+      margin: 0 0 32px;
+    }
+    label {
+      display: block;
+      font-size: 0.85rem;
+      color: var(--muted);
+      margin-bottom: 6px;
+    }
+    input {
+      width: 100%;
+      font-size: 1rem;
+      padding: 11px 14px;
+      border-radius: 8px;
+      border: 1px solid var(--border);
+      background: var(--bg);
+      color: var(--text);
+      margin-bottom: 18px;
+    }
+    input:focus {
+      outline: none;
+      border-color: var(--accent);
+    }
+    .btn {
+      width: 100%;
+      font-size: 1rem;
+      padding: 12px;
+      border-radius: 8px;
+      border: none;
+      cursor: pointer;
+      font-weight: 600;
+      transition: background 0.15s;
+    }
+    .btn-primary {
+      background: var(--accent);
+      color: var(--bg);
+    }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary {
+      background: transparent;
+      color: var(--muted);
+      border: 1px solid var(--border);
+      margin-top: 10px;
+    }
+    .btn-secondary:hover { color: var(--text); border-color: var(--text); }
+    .divider {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      margin: 20px 0;
+      color: var(--border);
+      font-size: 0.8rem;
+      color: var(--muted);
+    }
+    .divider::before, .divider::after {
+      content: '';
+      flex: 1;
+      height: 1px;
+      background: var(--border);
+    }
+    .message {
+      padding: 10px 14px;
+      border-radius: 8px;
+      font-size: 0.9rem;
+      margin-bottom: 16px;
+      display: none;
+    }
+    .message.error { background: rgba(255,107,107,0.15); color: var(--danger); display: block; }
+    .message.success { background: rgba(0,212,170,0.15); color: var(--accent); display: block; }
+  </style>
+</head>
+<body>
+  <div class="card">
+    <h1>GX 예약 시스템</h1>
+    <p class="subtitle">계정에 로그인하세요</p>
+
+    <div id="message" class="message"></div>
+
+    <label for="email">이메일</label>
+    <input type="email" id="email" placeholder="email@example.com" autocomplete="email">
+
+    <label for="password">비밀번호</label>
+    <input type="password" id="password" placeholder="비밀번호 입력" autocomplete="current-password">
+
+    <button class="btn btn-primary" id="btnLogin">로그인</button>
+
+    <div class="divider">또는</div>
+
+    <button class="btn btn-secondary" id="btnGoRegister">회원가입</button>
+  </div>
+
+  <script>
+    const msgEl = document.getElementById('message');
+
+    function showMsg(text, isError) {
+      msgEl.textContent = text;
+      msgEl.className = 'message ' + (isError ? 'error' : 'success');
+    }
+
+    // 이미 로그인된 경우 index.html로 이동
+    if (localStorage.getItem('gx_access_token')) {
+      location.href = '/demo/index.html';
+    }
+
+    document.getElementById('btnLogin').onclick = async () => {
+      const email = document.getElementById('email').value.trim();
+      const password = document.getElementById('password').value;
+
+      if (!email || !password) {
+        showMsg('이메일과 비밀번호를 입력하세요.', true);
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/auth/login', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ email, password })
+        });
+        const data = await res.json();
+
+        if (!res.ok) {
+          showMsg(data.message || '로그인에 실패했습니다.', true);
+          return;
+        }
+
+        localStorage.setItem('gx_access_token', data.accessToken);
+        localStorage.setItem('gx_user_id', data.userId);
+        localStorage.setItem('gx_account_code', data.accountCode);
+        localStorage.setItem('gx_email', data.email);
+        showMsg('로그인되었습니다. 이동합니다...', false);
+        setTimeout(() => { location.href = '/demo/index.html'; }, 600);
+      } catch (e) {
+        showMsg('네트워크 오류가 발생했습니다.', true);
+      }
+    };
+
+    document.getElementById('btnGoRegister').onclick = () => {
+      location.href = '/demo/register.html';
+    };
+
+    // Enter 키로 로그인
+    document.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') document.getElementById('btnLogin').click();
+    });
+  </script>
+</body>
+</html>

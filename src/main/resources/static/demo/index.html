@@ -34,7 +34,7 @@
       margin-bottom: 20px;
       max-width: 640px;
     }
-    input, button {
+    input, button, select {
       font-size: 1rem;
       padding: 10px 14px;
       border-radius: 8px;
@@ -43,6 +43,7 @@
       color: var(--text);
     }
     input { width: 100%; margin-bottom: 10px; }
+    select { width: 100%; margin-bottom: 10px; }
     button {
       cursor: pointer;
       background: var(--accent);
@@ -55,8 +56,7 @@
     button:hover { background: var(--accent-hover); }
     button.secondary { background: var(--border); color: var(--text); }
     button.danger { background: var(--danger); color: #fff; }
-    .auth-row { display: flex; gap: 12px; align-items: flex-end; flex-wrap: wrap; }
-    .auth-row input { width: 180px; margin-bottom: 0; }
+    button.danger:hover { background: #e55; }
     .hidden { display: none; }
     .message { margin-top: 12px; padding: 10px; border-radius: 8px; font-size: 0.9rem; }
     .message.error { background: rgba(255,107,107,0.15); color: var(--danger); }
@@ -73,32 +73,112 @@
     li:last-child { border-bottom: none; }
     .session-name { font-weight: 600; }
     .session-meta { font-size: 0.85rem; color: var(--muted); }
+    .user-badge {
+      display: inline-block;
+      padding: 2px 8px;
+      border-radius: 4px;
+      font-size: 0.75rem;
+      font-weight: 600;
+      margin-left: 8px;
+      background: rgba(0,212,170,0.15);
+      color: var(--accent);
+    }
+    .user-badge.instructor { background: rgba(255,200,0,0.15); color: #ffc800; }
+    .user-badge.admin { background: rgba(255,107,107,0.15); color: var(--danger); }
+    .form-row { display: flex; gap: 10px; flex-wrap: wrap; }
+    .form-row input, .form-row select { flex: 1; min-width: 120px; }
+    label { display: block; font-size: 0.8rem; color: var(--muted); margin-bottom: 4px; }
+    .form-group { margin-bottom: 10px; flex: 1; min-width: 120px; }
+    .membership-count {
+      font-size: 1.1rem;
+      font-weight: 600;
+      color: var(--accent);
+    }
   </style>
 </head>
 <body>
   <h1>GX 예약 데모</h1>
 
-  <section id="authSection">
-    <h2>로그인 / 회원가입</h2>
-    <div class="auth-row">
+  <section id="mainSection" class="hidden">
+    <div style="display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:12px;">
       <div>
-        <label>이메일</label>
-        <input type="email" id="email" placeholder="email@example.com">
+        <span id="userInfo" style="color: var(--muted);"></span>
+        <span id="accountBadge" class="user-badge"></span>
       </div>
-      <div>
-        <label>비밀번호</label>
-        <input type="password" id="password" placeholder="8자 이상">
+      <div style="display:flex; align-items:center; gap:16px;">
+        <span style="color:var(--muted); font-size:0.9rem;">회원권 잔여:
+          <span id="membershipCount" class="membership-count">-</span>회
+        </span>
+        <button id="btnGrant">회원권 10회 발급 (데모)</button>
+        <button id="btnLogout" class="secondary">로그아웃</button>
       </div>
-      <button id="btnLogin">로그인</button>
-      <button id="btnRegister" class="secondary">회원가입</button>
     </div>
-    <div id="authMessage" class="message hidden"></div>
   </section>
 
-  <section id="mainSection" class="hidden">
-    <p id="userInfo" style="color: var(--muted); margin-bottom: 16px;"></p>
-    <button id="btnGrant">회원권 10회 발급 (데모)</button>
-    <button id="btnLogout" class="secondary">로그아웃</button>
+  <!-- 강사 전용: 강의 관리 -->
+  <section id="classSection" class="hidden">
+    <h2>강의 관리 (강사 전용)</h2>
+
+    <div style="margin-bottom:16px;">
+      <button id="btnShowClassForm" class="secondary">+ 새 강의 등록</button>
+    </div>
+
+    <div id="classForm" class="hidden" style="border:1px solid var(--border); border-radius:8px; padding:16px; margin-bottom:16px;">
+      <h2 id="classFormTitle" style="margin-top:0;">강의 등록</h2>
+      <input type="hidden" id="editClassId">
+
+      <div class="form-row">
+        <div class="form-group" style="flex:2; min-width:200px;">
+          <label>강의명</label>
+          <input type="text" id="classSessionName" placeholder="예) 오전 요가">
+        </div>
+        <div class="form-group">
+          <label>요일</label>
+          <select id="classDayOfWeek">
+            <option value="1">월요일</option>
+            <option value="2">화요일</option>
+            <option value="3">수요일</option>
+            <option value="4">목요일</option>
+            <option value="5">금요일</option>
+            <option value="6">토요일</option>
+            <option value="7">일요일</option>
+          </select>
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>기간 시작일</label>
+          <input type="date" id="classStartDate">
+        </div>
+        <div class="form-group">
+          <label>기간 종료일</label>
+          <input type="date" id="classEndDate">
+        </div>
+      </div>
+
+      <div class="form-row">
+        <div class="form-group">
+          <label>강의 시작 시각</label>
+          <input type="time" id="classStartTime" value="09:00">
+        </div>
+        <div class="form-group">
+          <label>강의 종료 시각</label>
+          <input type="time" id="classEndTime" value="10:00">
+        </div>
+        <div class="form-group">
+          <label>최대 정원</label>
+          <input type="number" id="classMaxCapacity" value="15" min="1">
+        </div>
+      </div>
+
+      <button id="btnSaveClass">저장</button>
+      <button id="btnCancelClassForm" class="secondary">취소</button>
+      <div id="classFormMessage" class="message hidden"></div>
+    </div>
+
+    <ul id="myClassList"></ul>
+    <div id="classListMessage" class="message hidden"></div>
   </section>
 
   <section id="sessionsSection" class="hidden">
@@ -118,18 +198,15 @@
     const API_BASE = '';
     let accessToken = localStorage.getItem('gx_access_token');
     let userId = localStorage.getItem('gx_user_id');
+    let accountCode = localStorage.getItem('gx_account_code');
 
-    function show(el, show) {
-      el.classList.toggle('hidden', !show);
-    }
+    function show(el, visible) { el.classList.toggle('hidden', !visible); }
     function msg(el, text, isError) {
       el.textContent = text;
       el.className = 'message ' + (isError ? 'error' : 'success');
       show(el, true);
     }
-    function hideMsg(el) {
-      show(el, false);
-    }
+    function hideMsg(el) { show(el, false); }
 
     function headers() {
       const h = { 'Content-Type': 'application/json' };
@@ -137,100 +214,139 @@
       return h;
     }
 
-    function setLoggedIn(token, id, email) {
+    function setLoggedIn(token, id, code) {
       accessToken = token;
       userId = id;
-      if (token) localStorage.setItem('gx_access_token', token);
-      if (id) localStorage.setItem('gx_user_id', id);
-      show(document.getElementById('authSection'), !accessToken);
-      show(document.getElementById('mainSection'), !!accessToken);
-      show(document.getElementById('sessionsSection'), !!accessToken);
-      show(document.getElementById('reservationsSection'), !!accessToken);
-      if (accessToken) {
-        document.getElementById('userInfo').textContent = '로그인: ' + (email || userId);
+      accountCode = code;
+      const loggedIn = !!accessToken;
+      show(document.getElementById('mainSection'), loggedIn);
+      show(document.getElementById('sessionsSection'), loggedIn);
+      show(document.getElementById('reservationsSection'), loggedIn);
+      show(document.getElementById('classSection'), loggedIn && accountCode === 'INSTRUCTOR');
+
+      if (loggedIn) {
+        document.getElementById('userInfo').textContent = '로그인: ' + (localStorage.getItem('gx_name') || localStorage.getItem('gx_email') || userId);
+        const badge = document.getElementById('accountBadge');
+        if (accountCode === 'INSTRUCTOR') { badge.textContent = '강사'; badge.className = 'user-badge instructor'; }
+        else if (accountCode === 'ADMIN') { badge.textContent = '관리자'; badge.className = 'user-badge admin'; }
+        else { badge.textContent = '회원'; badge.className = 'user-badge'; }
+        loadMembershipCount();
         loadSessions();
         loadReservations();
+        if (accountCode === 'INSTRUCTOR') loadMyClasses();
       }
     }
 
-    document.getElementById('btnLogin').onclick = async () => {
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const authMsg = document.getElementById('authMessage');
-      if (!email || !password) {
-        msg(authMsg, '이메일과 비밀번호를 입력하세요.', true);
+    async function loadMembershipCount() {
+      try {
+        const res = await fetch(API_BASE + '/api/memberships/me', { headers: headers() });
+        const data = await res.json();
+        if (res.ok && Array.isArray(data)) {
+          const total = data.filter(m => m.status === 'ACTIVE')
+                            .reduce((sum, m) => sum + (m.remainingCount || 0), 0);
+          document.getElementById('membershipCount').textContent = total;
+        }
+      } catch (e) { /* 무시 */ }
+    }
+
+    // ─── 강의 관리 ──────────────────────────────────────────────────────────────
+
+    async function loadMyClasses() {
+      const listEl = document.getElementById('myClassList');
+      const msgEl = document.getElementById('classListMessage');
+      try {
+        const res = await fetch(API_BASE + '/api/gx/classes/mine', { headers: headers() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || '조회 실패');
+        listEl.innerHTML = data.length === 0
+          ? '<li class="session-meta">등록된 강의가 없습니다.</li>'
+          : data.map(c => `
+              <li>
+                <div>
+                  <span class="session-name">${c.sessionName}</span>
+                  <div class="session-meta">
+                    ${c.dayOfWeekName}요일 ${c.startTime}~${c.endTime}
+                    | ${c.startDate} ~ ${c.endDate}
+                    | 정원 ${c.maxCapacity}명
+                    | 세션 ${c.sessionCount}회
+                  </div>
+                </div>
+                <button class="secondary btnEditClass" data-id="${c.gxClassInfoId}"
+                  data-name="${c.sessionName}" data-dow="${c.dayOfWeek}"
+                  data-start-date="${c.startDate}" data-end-date="${c.endDate}"
+                  data-start-time="${c.startTime}" data-end-time="${c.endTime}"
+                  data-capacity="${c.maxCapacity}">수정</button>
+              </li>`).join('');
+        listEl.querySelectorAll('.btnEditClass').forEach(btn => {
+          btn.onclick = () => openEditForm(btn.dataset);
+        });
+        hideMsg(msgEl);
+      } catch (e) {
+        msg(msgEl, e.message || '강의 목록 조회 실패', true);
+      }
+    }
+
+    function openEditForm(data) {
+      document.getElementById('classFormTitle').textContent = '강의 수정';
+      document.getElementById('editClassId').value = data.id;
+      document.getElementById('classSessionName').value = data.name;
+      document.getElementById('classDayOfWeek').value = data.dow;
+      document.getElementById('classStartDate').value = data.startDate;
+      document.getElementById('classEndDate').value = data.endDate;
+      document.getElementById('classStartTime').value = data.startTime;
+      document.getElementById('classEndTime').value = data.endTime;
+      document.getElementById('classMaxCapacity').value = data.capacity;
+      show(document.getElementById('classForm'), true);
+    }
+
+    document.getElementById('btnShowClassForm').onclick = () => {
+      document.getElementById('classFormTitle').textContent = '강의 등록';
+      document.getElementById('editClassId').value = '';
+      document.getElementById('classSessionName').value = '';
+      document.getElementById('classStartDate').value = '';
+      document.getElementById('classEndDate').value = '';
+      document.getElementById('classStartTime').value = '09:00';
+      document.getElementById('classEndTime').value = '10:00';
+      document.getElementById('classMaxCapacity').value = '15';
+      hideMsg(document.getElementById('classFormMessage'));
+      show(document.getElementById('classForm'), true);
+    };
+
+    document.getElementById('btnCancelClassForm').onclick = () => {
+      show(document.getElementById('classForm'), false);
+    };
+
+    document.getElementById('btnSaveClass').onclick = async () => {
+      const formMsg = document.getElementById('classFormMessage');
+      const classId = document.getElementById('editClassId').value;
+      const body = {
+        sessionName: document.getElementById('classSessionName').value.trim(),
+        startDate: document.getElementById('classStartDate').value,
+        endDate: document.getElementById('classEndDate').value,
+        startTime: document.getElementById('classStartTime').value,
+        endTime: document.getElementById('classEndTime').value,
+        dayOfWeek: parseInt(document.getElementById('classDayOfWeek').value),
+        maxCapacity: parseInt(document.getElementById('classMaxCapacity').value) || 15,
+        requiredMembershipCount: 1
+      };
+      if (!body.sessionName || !body.startDate || !body.endDate) {
+        msg(formMsg, '강의명, 기간을 입력하세요.', true);
         return;
       }
       try {
-        const res = await fetch(API_BASE + '/api/auth/login', {
-          method: 'POST',
-          headers: headers(),
-          body: JSON.stringify({ email, password })
-        });
+        const url = classId ? `${API_BASE}/api/gx/classes/${classId}` : `${API_BASE}/api/gx/classes`;
+        const method = classId ? 'PUT' : 'POST';
+        const res = await fetch(url, { method, headers: headers(), body: JSON.stringify(body) });
         const data = await res.json();
-        if (!res.ok) {
-          msg(authMsg, data.message || '로그인 실패', true);
-          return;
-        }
-        setLoggedIn(data.accessToken, data.userId, data.email);
-        msg(authMsg, '로그인되었습니다.', false);
+        if (!res.ok) { msg(formMsg, data.message || '저장 실패', true); return; }
+        msg(formMsg, classId ? '강의가 수정되었습니다.' : `강의가 등록되었습니다. (${data.sessionCount}개 세션 생성)`, false);
+        setTimeout(() => { show(document.getElementById('classForm'), false); loadMyClasses(); loadSessions(); }, 800);
       } catch (e) {
-        msg(authMsg, '네트워크 오류', true);
+        msg(formMsg, '네트워크 오류', true);
       }
     };
 
-    document.getElementById('btnRegister').onclick = async () => {
-      const email = document.getElementById('email').value.trim();
-      const password = document.getElementById('password').value;
-      const authMsg = document.getElementById('authMessage');
-      if (!email || !password) {
-        msg(authMsg, '이메일과 비밀번호를 입력하세요.', true);
-        return;
-      }
-      if (password.length < 8) {
-        msg(authMsg, '비밀번호는 8자 이상이어야 합니다.', true);
-        return;
-      }
-      try {
-        const res = await fetch(API_BASE + '/api/auth/register', {
-          method: 'POST',
-          headers: headers(),
-          body: JSON.stringify({ email, password, name: null, phone: null })
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          msg(authMsg, data.message || '회원가입 실패', true);
-          return;
-        }
-        setLoggedIn(data.accessToken, data.userId, data.email);
-        msg(authMsg, '회원가입 및 로그인되었습니다.', false);
-      } catch (e) {
-        msg(authMsg, '네트워크 오류', true);
-      }
-    };
-
-    document.getElementById('btnLogout').onclick = () => {
-      localStorage.removeItem('gx_access_token');
-      localStorage.removeItem('gx_user_id');
-      setLoggedIn(null, null);
-    };
-
-    document.getElementById('btnGrant').onclick = async () => {
-      try {
-        const res = await fetch(API_BASE + '/api/demo/grant-membership?count=10&validDays=30', {
-          method: 'POST',
-          headers: headers()
-        });
-        const data = await res.json();
-        if (!res.ok) {
-          alert(data.message || '발급 실패');
-          return;
-        }
-        alert('회원권 10회 발급되었습니다. (유효기간 30일)');
-      } catch (e) {
-        alert('네트워크 오류');
-      }
-    };
+    // ─── 세션 예약 ──────────────────────────────────────────────────────────────
 
     async function loadSessions() {
       const listEl = document.getElementById('sessionList');
@@ -243,7 +359,15 @@
           ? '<li class="session-meta">예약 가능한 세션이 없습니다.</li>'
           : sessions.map(s => {
               const start = s.sessionStartAt ? new Date(s.sessionStartAt).toLocaleString('ko-KR') : '-';
-              return '<li><div><span class="session-name">' + (s.sessionName || 'GX') + '</span><div class="session-meta">' + start + ' | ' + (s.reservedCount ?? 0) + '/' + (s.maxCapacity ?? 0) + '</div></div><button data-session-id="' + s.gxSessionId + '" class="btnReserve">예약</button></li>';
+              const isMyClass = accountCode === 'INSTRUCTOR' && s.instructorUserId === userId;
+              const btnAttr = isMyClass ? 'disabled title="본인 강의는 예약할 수 없습니다."' : `data-session-id="${s.gxSessionId}" class="btnReserve"`;
+              return `<li>
+                <div>
+                  <span class="session-name">${s.sessionName || 'GX'}</span>
+                  <div class="session-meta">${start} | ${s.reservedCount ?? 0}/${s.maxCapacity ?? 0}명</div>
+                </div>
+                <button ${btnAttr} style="${isMyClass ? 'opacity:0.4;cursor:not-allowed;' : ''}">예약</button>
+              </li>`;
             }).join('');
         listEl.querySelectorAll('.btnReserve').forEach(btn => {
           btn.onclick = () => reserve(btn.dataset.sessionId);
@@ -258,22 +382,20 @@
       const msgEl = document.getElementById('sessionsMessage');
       try {
         const res = await fetch(API_BASE + '/api/gx/reservations', {
-          method: 'POST',
-          headers: headers(),
-          body: JSON.stringify({ gxSessionId })
+          method: 'POST', headers: headers(), body: JSON.stringify({ gxSessionId })
         });
         const data = await res.json();
-        if (!res.ok) {
-          msg(msgEl, data.message || '예약 실패', true);
-          return;
-        }
+        if (!res.ok) { msg(msgEl, data.message || '예약 실패', true); return; }
         msg(msgEl, '예약되었습니다.', false);
+        loadMembershipCount();
         loadSessions();
         loadReservations();
       } catch (e) {
         msg(msgEl, e.message || '예약 실패', true);
       }
     }
+
+    // ─── 내 예약 ────────────────────────────────────────────────────────────────
 
     async function loadReservations() {
       const listEl = document.getElementById('reservationList');
@@ -285,9 +407,20 @@
         const active = reservations.filter(r => r.status === 'RESERVED');
         listEl.innerHTML = active.length === 0
           ? '<li class="session-meta">예약 내역이 없습니다.</li>'
-          : active.map(r => '<li><div><span class="session-name">세션 ' + r.gxSessionId + '</span><div class="session-meta">' + r.status + ' | ' + (r.deductCount || 1) + '회 차감</div></div><button data-reservation-id="' + r.reservationId + '" class="btnCancel danger">취소</button></li>').join('');
+          : active.map(r => {
+              const dateStr = r.sessionStartAt
+                ? new Date(r.sessionStartAt).toLocaleString('ko-KR') : '-';
+              const name = r.sessionName || ('세션 ' + r.gxSessionId.substring(0, 8));
+              return `<li>
+                <div>
+                  <span class="session-name">${name}</span>
+                  <div class="session-meta">${dateStr} | ${r.deductCount || 1}회 차감</div>
+                </div>
+                <button data-reservation-id="${r.reservationId}" class="btnCancel danger">취소</button>
+              </li>`;
+            }).join('');
         listEl.querySelectorAll('.btnCancel').forEach(btn => {
-          btn.onclick = () => cancel(btn.dataset.reservationId);
+          btn.onclick = () => cancelReservation(btn.dataset.reservationId);
         });
         hideMsg(msgEl);
       } catch (e) {
@@ -295,12 +428,11 @@
       }
     }
 
-    async function cancel(reservationId) {
+    async function cancelReservation(reservationId) {
       const msgEl = document.getElementById('reservationsMessage');
       try {
         const res = await fetch(API_BASE + '/api/gx/reservations/' + reservationId + '/cancel', {
-          method: 'POST',
-          headers: headers()
+          method: 'POST', headers: headers()
         });
         if (!res.ok) {
           const data = await res.json();
@@ -308,6 +440,7 @@
           return;
         }
         msg(msgEl, '예약이 취소되었습니다.', false);
+        loadMembershipCount();
         loadSessions();
         loadReservations();
       } catch (e) {
@@ -315,9 +448,38 @@
       }
     }
 
+    // ─── 이벤트 바인딩 ────────────────────────────────────────────────────────
+
+    document.getElementById('btnLogout').onclick = () => {
+      localStorage.removeItem('gx_access_token');
+      localStorage.removeItem('gx_user_id');
+      localStorage.removeItem('gx_account_code');
+      localStorage.removeItem('gx_email');
+      localStorage.removeItem('gx_name');
+      location.href = '/demo/login.html';
+    };
+
+    document.getElementById('btnGrant').onclick = async () => {
+      try {
+        const res = await fetch(API_BASE + '/api/demo/grant-membership?count=10&validDays=30', {
+          method: 'POST', headers: headers()
+        });
+        const data = await res.json();
+        if (!res.ok) { alert(data.message || '발급 실패'); return; }
+        alert('회원권 10회 발급되었습니다. (유효기간 30일)');
+        loadMembershipCount();
+      } catch (e) { alert('네트워크 오류'); }
+    };
+
     document.getElementById('btnRefreshSessions').onclick = loadSessions;
 
-    if (accessToken) setLoggedIn(accessToken, userId);
+    // ─── 초기화 ────────────────────────────────────────────────────────────────
+
+    if (!accessToken) {
+      location.href = '/demo/login.html';
+    } else {
+      setLoggedIn(accessToken, userId, accountCode);
+    }
   </script>
 </body>
 </html>

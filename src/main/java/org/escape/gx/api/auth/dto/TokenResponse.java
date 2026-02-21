@@ -10,6 +10,8 @@ public record TokenResponse(
         String accessToken,
         String refreshToken,
         String userId,
-        String email
+        String email,
+        String accountCode,
+        String name
 ) {
 }

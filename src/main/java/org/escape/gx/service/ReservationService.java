@@ -1,5 +1,6 @@
 package org.escape.gx.service;
 
+import org.escape.gx.api.gx.dto.GxClassRequest;
 import org.escape.gx.common.enums.ClassStatus;
 import org.escape.gx.common.enums.ReservationStatus;
 import org.escape.gx.domain.gx.GxClassInfo;
@@ -12,7 +13,10 @@ import org.escape.gx.domain.gx.ReservationRepository;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.time.DayOfWeek;
+import java.time.LocalDate;
 import java.time.LocalDateTime;
+import java.time.LocalTime;
 import java.util.List;
 import java.util.UUID;
 
@@ -45,15 +49,16 @@ public class ReservationService {
      */
     @Transactional(readOnly = true)
     public List<GxSession> findUpcomingSessions() {
-        return sessionRepository.findUpcomingWithClassInfo(LocalDateTime.now());
+        LocalDateTime now = LocalDateTime.now();
+        return sessionRepository.findUpcomingWithClassInfo(now, now.plusDays(7));
     }
 
     /**
      * 세션 예약. 회원권 차감 후 예약 생성.
      *
-     * @param userId     사용자 ID
+     * @param userId      사용자 ID
      * @param gxSessionId 세션 ID
-     * @return 생성된 예약. 회원권 부족 또는 정원 마감 시 null
+     * @return 생성된 예약. 회원권 부족 또는 정원 마감 시 예외 발생
      */
     @Transactional
     public Reservation reserve(String userId, String gxSessionId) {
@@ -130,11 +135,13 @@ public class ReservationService {
     }
 
     /**
-     * 사용자 예약 목록 조회.
+     * 사용자 예약 목록 조회 (세션·강의 정보 포함).
+     *
+     * @param userId 사용자 ID
      */
     @Transactional(readOnly = true)
     public List<Reservation> findByUserId(String userId) {
-        return reservationRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        return reservationRepository.findByUserIdWithDetails(userId);
     }
 
     /**
@@ -143,5 +150,119 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public List<Reservation> findActiveByUserId(String userId) {
         return reservationRepository.findByUserIdAndStatus(userId, ReservationStatus.RESERVED);
+    }
+
+    // ─── 강의 관리 ──────────────────────────────────────────────────────────────
+
+    /**
+     * 전체 강의 목록 조회.
+     */
+    @Transactional(readOnly = true)
+    public List<GxClassInfo> findAllClasses() {
+        return classInfoRepository.findAllByOrderBySessionStartAtAsc();
+    }
+
+    /**
+     * 강사의 강의 목록 조회.
+     *
+     * @param instructorUserId 강사 사용자 ID
+     */
+    @Transactional(readOnly = true)
+    public List<GxClassInfo> findClassesByInstructor(String instructorUserId) {
+        return classInfoRepository.findByInstructorUserIdOrderBySessionStartAtAsc(instructorUserId);
+    }
+
+    /**
+     * 강의 등록 및 주간 세션 자동 생성.
+     *
+     * @param instructorUserId 강사 사용자 ID
+     * @param request          강의 등록 요청
+     * @return 생성된 강의 기준정보
+     */
+    @Transactional
+    public GxClassInfo createClass(String instructorUserId, GxClassRequest request) {
+        LocalTime startTime = LocalTime.parse(request.startTime());
+        LocalTime endTime = LocalTime.parse(request.endTime());
+        LocalDateTime periodStart = LocalDateTime.of(request.startDate(), startTime);
+        LocalDateTime periodEnd = LocalDateTime.of(request.endDate(), endTime);
+
+        String classInfoId = UUID.randomUUID().toString();
+        GxClassInfo classInfo = GxClassInfo.builder()
+                .gxClassInfoId(classInfoId)
+                .sessionName(request.sessionName())
+                .instructorUserId(instructorUserId)
+                .sessionStartAt(periodStart)
+                .sessionEndAt(periodEnd)
+                .maxCapacity(request.maxCapacity())
+                .requiredMembershipCount(request.requiredMembershipCount())
+                .dayOfWeek(request.dayOfWeek())
+                .build();
+        classInfoRepository.save(classInfo);
+        generateWeeklySessions(classInfo);
+        return classInfo;
+    }
+
+    /**
+     * 강의 수정.
+     *
+     * @param classInfoId      강의 기준정보 ID
+     * @param instructorUserId 요청 강사 ID (본인 강의인지 검증)
+     * @param request          수정 요청
+     * @return 수정된 강의 기준정보
+     */
+    @Transactional
+    public GxClassInfo updateClass(String classInfoId, String instructorUserId, GxClassRequest request) {
+        GxClassInfo classInfo = classInfoRepository.findById(classInfoId)
+                .orElseThrow(() -> new IllegalArgumentException("강의를 찾을 수 없습니다."));
+        if (!classInfo.getInstructorUserId().equals(instructorUserId)) {
+            throw new IllegalArgumentException("본인의 강의만 수정할 수 있습니다.");
+        }
+        LocalTime startTime = LocalTime.parse(request.startTime());
+        LocalTime endTime = LocalTime.parse(request.endTime());
+        classInfo.update(
+                request.sessionName(),
+                LocalDateTime.of(request.startDate(), startTime),
+                LocalDateTime.of(request.endDate(), endTime),
+                request.maxCapacity(),
+                request.dayOfWeek()
+        );
+        return classInfoRepository.save(classInfo);
+    }
+
+    /**
+     * 강의에 속한 세션 수 조회.
+     *
+     * @param classInfoId 강의 기준정보 ID
+     */
+    @Transactional(readOnly = true)
+    public int countSessions(String classInfoId) {
+        return sessionRepository.findByGxClassInfoIdOrderByCreatedAtAsc(classInfoId).size();
+    }
+
+    /**
+     * 강의 기간·요일에 따라 주간 세션을 자동 생성한다.
+     *
+     * @param classInfo 강의 기준정보
+     */
+    private void generateWeeklySessions(GxClassInfo classInfo) {
+        LocalDate startDate = classInfo.getSessionStartAt().toLocalDate();
+        LocalDate endDate = classInfo.getSessionEndAt().toLocalDate();
+        LocalTime classTime = classInfo.getSessionStartAt().toLocalTime();
+        DayOfWeek targetDay = DayOfWeek.of(classInfo.getDayOfWeek());
+
+        LocalDate current = startDate;
+        while (current.getDayOfWeek() != targetDay) {
+            current = current.plusDays(1);
+        }
+        if (current.isAfter(endDate)) {
+            return;
+        }
+
+        GxSession session = GxSession.builder()
+                .gxSessionId(UUID.randomUUID().toString())
+                .gxClassInfoId(classInfo.getGxClassInfoId())
+                .sessionStartAt(LocalDateTime.of(current, classTime))
+                .build();
+        sessionRepository.save(session);
     }
 }
