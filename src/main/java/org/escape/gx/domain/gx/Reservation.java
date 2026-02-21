@@ -61,13 +61,13 @@ public class Reservation {
 
     @Builder
     public Reservation(String reservationId, String userId, String gxSessionId,
-                       String membershipId, Integer deductCount) {
+                       String membershipId, Integer deductCount, ReservationStatus status) {
         this.reservationId = reservationId;
         this.userId = userId;
         this.gxSessionId = gxSessionId;
         this.membershipId = membershipId;
-        this.deductCount = deductCount != null ? deductCount : 1;
-        this.status = ReservationStatus.RESERVED;
+        this.deductCount = deductCount != null ? deductCount : 0;
+        this.status = status != null ? status : ReservationStatus.RESERVED;
         Instant now = Instant.now();
         this.createdAt = now;
         this.updatedAt = now;
@@ -85,5 +85,9 @@ public class Reservation {
 
     public boolean isReserved() {
         return this.status == ReservationStatus.RESERVED;
+    }
+
+    public boolean isWaiting() {
+        return this.status == ReservationStatus.WAITING;
     }
 }

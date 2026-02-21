@@ -94,6 +94,57 @@
       font-weight: 600;
       color: var(--accent);
     }
+    .section-header {
+      display: flex;
+      justify-content: space-between;
+      align-items: center;
+      margin: 20px 0 12px;
+    }
+    .section-header h2 { margin: 0; }
+    /* 모달 */
+    .modal-backdrop {
+      display: none;
+      position: fixed;
+      inset: 0;
+      background: rgba(0,0,0,0.6);
+      z-index: 100;
+      align-items: center;
+      justify-content: center;
+    }
+    .modal-backdrop.open { display: flex; }
+    .modal {
+      background: var(--surface);
+      border: 1px solid var(--border);
+      border-radius: 12px;
+      padding: 24px;
+      width: 100%;
+      max-width: 400px;
+      max-height: 70vh;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+    }
+    .modal h3 { margin: 0; font-size: 1rem; color: var(--accent); }
+    .modal-list { overflow-y: auto; flex: 1; list-style: none; padding: 0; margin: 0; }
+    .modal-list li {
+      padding: 10px 0;
+      border-bottom: 1px solid var(--border);
+      font-size: 0.9rem;
+      display: flex;
+      justify-content: space-between;
+    }
+    .modal-list li:last-child { border-bottom: none; }
+    .modal-list .empty { color: var(--muted); }
+    .modal-close {
+      align-self: flex-end;
+      background: var(--border);
+      color: var(--text);
+      border: none;
+      border-radius: 6px;
+      padding: 6px 14px;
+      cursor: pointer;
+      font-size: 0.85rem;
+    }
   </style>
 </head>
 <body>
@@ -182,8 +233,10 @@
   </section>
 
   <section id="sessionsSection" class="hidden">
-    <h2>예약 가능 세션</h2>
-    <button id="btnRefreshSessions">새로고침</button>
+    <div class="section-header">
+      <h2>예약 가능 세션</h2>
+      <button id="btnRefreshSessions">새로고침</button>
+    </div>
     <ul id="sessionList"></ul>
     <div id="sessionsMessage" class="message hidden"></div>
   </section>
@@ -193,6 +246,15 @@
     <ul id="reservationList"></ul>
     <div id="reservationsMessage" class="message hidden"></div>
   </section>
+
+  <!-- 예약자/대기자 모달 -->
+  <div id="attendeeModal" class="modal-backdrop">
+    <div class="modal">
+      <h3 id="modalTitle">예약자 목록</h3>
+      <ul id="modalList" class="modal-list"></ul>
+      <button class="modal-close" id="btnModalClose">닫기</button>
+    </div>
+  </div>
 
   <script>
     const API_BASE = '';
@@ -346,6 +408,40 @@
       }
     };
 
+    // ─── 모달 ──────────────────────────────────────────────────────────────────
+
+    document.getElementById('btnModalClose').onclick = () => {
+      document.getElementById('attendeeModal').classList.remove('open');
+    };
+    document.getElementById('attendeeModal').onclick = (e) => {
+      if (e.target === e.currentTarget) e.currentTarget.classList.remove('open');
+    };
+
+    async function openAttendeesModal(sessionId, sessionName, type) {
+      const modal = document.getElementById('attendeeModal');
+      const title = document.getElementById('modalTitle');
+      const list = document.getElementById('modalList');
+      title.textContent = (type === 'waitlist' ? '대기자' : '예약자') + ' 목록 — ' + sessionName;
+      list.innerHTML = '<li><span class="empty">불러오는 중...</span></li>';
+      modal.classList.add('open');
+      try {
+        const endpoint = type === 'waitlist'
+          ? `/api/gx/sessions/${sessionId}/waitlist`
+          : `/api/gx/sessions/${sessionId}/reservations`;
+        const res = await fetch(API_BASE + endpoint, { headers: headers() });
+        const data = await res.json();
+        if (!res.ok) throw new Error(data.message || '조회 실패');
+        list.innerHTML = data.length === 0
+          ? '<li><span class="empty">없습니다.</span></li>'
+          : data.map((a, i) => `<li>
+              <span>${i + 1}. ${a.name || a.userId}</span>
+              <span style="color:var(--muted);font-size:0.8rem;">${a.createdAt ? new Date(a.createdAt).toLocaleString('ko-KR') : ''}</span>
+            </li>`).join('');
+      } catch (e) {
+        list.innerHTML = `<li><span class="empty">${e.message}</span></li>`;
+      }
+    }
+
     // ─── 세션 예약 ──────────────────────────────────────────────────────────────
 
     async function loadSessions() {
@@ -359,18 +455,40 @@
           ? '<li class="session-meta">예약 가능한 세션이 없습니다.</li>'
           : sessions.map(s => {
               const start = s.sessionStartAt ? new Date(s.sessionStartAt).toLocaleString('ko-KR') : '-';
+              const waiting = s.waitingCount ?? 0;
+              const meta = `${start} | ${s.reservedCount ?? 0}/${s.maxCapacity ?? 0}명${waiting > 0 ? ` | 대기 ${waiting}명` : ''}`;
               const isMyClass = accountCode === 'INSTRUCTOR' && s.instructorUserId === userId;
-              const btnAttr = isMyClass ? 'disabled title="본인 강의는 예약할 수 없습니다."' : `data-session-id="${s.gxSessionId}" class="btnReserve"`;
+              const sName = s.sessionName || 'GX';
+
+              const isFull = s.status === 'RESV_FULL';
+
+              let buttons;
+              if (isMyClass) {
+                buttons = `
+                  <button class="btnViewReservations secondary" data-session-id="${s.gxSessionId}" data-name="${sName}">예약</button>
+                  <button class="btnViewWaitlist secondary" data-session-id="${s.gxSessionId}" data-name="${sName}">대기</button>`;
+              } else if (isFull) {
+                buttons = `<button data-session-id="${s.gxSessionId}" class="btnReserve secondary" style="background:var(--border);color:var(--muted);" title="정원 마감 — 클릭 시 대기 등록">대기 신청</button>`;
+              } else {
+                buttons = `<button data-session-id="${s.gxSessionId}" class="btnReserve">예약</button>`;
+              }
+
               return `<li>
                 <div>
-                  <span class="session-name">${s.sessionName || 'GX'}</span>
-                  <div class="session-meta">${start} | ${s.reservedCount ?? 0}/${s.maxCapacity ?? 0}명</div>
+                  <span class="session-name">${sName}</span>
+                  <div class="session-meta">${meta}</div>
                 </div>
-                <button ${btnAttr} style="${isMyClass ? 'opacity:0.4;cursor:not-allowed;' : ''}">예약</button>
+                <div style="display:flex;gap:6px;">${buttons}</div>
               </li>`;
             }).join('');
         listEl.querySelectorAll('.btnReserve').forEach(btn => {
           btn.onclick = () => reserve(btn.dataset.sessionId);
+        });
+        listEl.querySelectorAll('.btnViewReservations').forEach(btn => {
+          btn.onclick = () => openAttendeesModal(btn.dataset.sessionId, btn.dataset.name, 'reservations');
+        });
+        listEl.querySelectorAll('.btnViewWaitlist').forEach(btn => {
+          btn.onclick = () => openAttendeesModal(btn.dataset.sessionId, btn.dataset.name, 'waitlist');
         });
         hideMsg(msgEl);
       } catch (e) {
@@ -386,7 +504,10 @@
         });
         const data = await res.json();
         if (!res.ok) { msg(msgEl, data.message || '예약 실패', true); return; }
-        msg(msgEl, '예약되었습니다.', false);
+        const message = data.status === 'WAITING'
+          ? '정원이 마감되어 대기 목록에 등록되었습니다.'
+          : '예약되었습니다.';
+        msg(msgEl, message, false);
         loadMembershipCount();
         loadSessions();
         loadReservations();
@@ -404,17 +525,22 @@
         const res = await fetch(API_BASE + '/api/gx/reservations', { headers: headers() });
         const reservations = await res.json();
         if (!res.ok) throw new Error(reservations.message || '조회 실패');
-        const active = reservations.filter(r => r.status === 'RESERVED');
+        const active = reservations.filter(r => r.status === 'RESERVED' || r.status === 'WAITING');
         listEl.innerHTML = active.length === 0
           ? '<li class="session-meta">예약 내역이 없습니다.</li>'
           : active.map(r => {
+              const isWaiting = r.status === 'WAITING';
               const dateStr = r.sessionStartAt
                 ? new Date(r.sessionStartAt).toLocaleString('ko-KR') : '-';
               const name = r.sessionName || ('세션 ' + r.gxSessionId.substring(0, 8));
+              const statusBadge = isWaiting
+                ? '<span style="font-size:0.75rem;background:rgba(255,200,0,0.15);color:#ffc800;padding:2px 6px;border-radius:4px;margin-left:6px;">대기</span>'
+                : '';
+              const metaText = isWaiting ? `${dateStr} | 대기 중` : `${dateStr} | ${r.deductCount || 1}회 차감`;
               return `<li>
                 <div>
-                  <span class="session-name">${name}</span>
-                  <div class="session-meta">${dateStr} | ${r.deductCount || 1}회 차감</div>
+                  <span class="session-name">${name}${statusBadge}</span>
+                  <div class="session-meta">${metaText}</div>
                 </div>
                 <button data-reservation-id="${r.reservationId}" class="btnCancel danger">취소</button>
               </li>`;

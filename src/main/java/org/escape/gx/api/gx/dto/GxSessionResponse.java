@@ -18,6 +18,7 @@ public record GxSessionResponse(
         Integer reservedCount,
         Integer requiredMembershipCount,
         String status,
-        String instructorUserId
+        String instructorUserId,
+        Integer waitingCount
 ) {
 }

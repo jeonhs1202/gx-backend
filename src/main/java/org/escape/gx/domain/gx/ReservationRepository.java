@@ -23,11 +23,21 @@ public interface ReservationRepository extends JpaRepository<Reservation, String
            "order by r.createdAt desc")
     List<Reservation> findByUserIdWithDetails(@Param("userId") String userId);
 
+    @Query("select r from Reservation r " +
+           "left join fetch r.gxSession s " +
+           "left join fetch s.gxClassInfo " +
+           "where r.reservationId = :reservationId")
+    Optional<Reservation> findByIdWithDetails(@Param("reservationId") String reservationId);
+
     List<Reservation> findByUserIdOrderByCreatedAtDesc(String userId);
 
     List<Reservation> findByUserIdAndStatus(String userId, ReservationStatus status);
 
     List<Reservation> findByGxSessionIdAndStatus(String gxSessionId, ReservationStatus status);
+
+    List<Reservation> findByGxSessionIdAndStatusOrderByCreatedAtAsc(String gxSessionId, ReservationStatus status);
+
+    int countByGxSessionIdAndStatus(String gxSessionId, ReservationStatus status);
 
     Optional<Reservation> findByUserIdAndGxSessionIdAndStatus(String userId, String gxSessionId, ReservationStatus status);
 

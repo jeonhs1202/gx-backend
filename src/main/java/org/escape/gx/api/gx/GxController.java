@@ -3,6 +3,7 @@ package org.escape.gx.api.gx;
 import org.escape.gx.api.gx.dto.GxSessionResponse;
 import org.escape.gx.api.gx.dto.ReservationResponse;
 import org.escape.gx.api.gx.dto.ReserveRequest;
+import org.escape.gx.api.gx.dto.SessionAttendeeResponse;
 import org.escape.gx.common.enums.ClassStatus;
 import org.escape.gx.domain.gx.GxClassInfo;
 import org.escape.gx.domain.gx.GxSession;
@@ -10,6 +11,7 @@ import org.escape.gx.domain.gx.Reservation;
 import org.escape.gx.service.ReservationService;
 import org.springframework.http.ResponseEntity;
 import org.springframework.security.core.Authentication;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -62,24 +64,44 @@ public class GxController {
     }
 
     /**
-     * GX 예약.
+     * GX 예약 (정원 마감 시 대기 등록).
      */
     @PostMapping("/reservations")
     public ResponseEntity<ReservationResponse> reserve(Authentication auth,
                                                          @Valid @RequestBody ReserveRequest request) {
         String userId = (String) auth.getPrincipal();
         Reservation reservation = reservationService.reserve(userId, request.gxSessionId());
-        return ResponseEntity.ok(toReservationResponse(reservation));
+        Reservation withDetails = reservationService.findWithDetails(reservation.getReservationId())
+                .orElse(reservation);
+        return ResponseEntity.ok(toReservationResponse(withDetails));
     }
 
     /**
-     * 예약 취소.
+     * 예약/대기 취소.
      */
     @PostMapping("/reservations/{reservationId}/cancel")
     public ResponseEntity<Void> cancel(Authentication auth, @PathVariable String reservationId) {
         String userId = (String) auth.getPrincipal();
         reservationService.cancel(userId, reservationId);
         return ResponseEntity.ok().build();
+    }
+
+    /**
+     * 세션 예약자 목록 조회 (강사 전용).
+     */
+    @GetMapping("/sessions/{sessionId}/reservations")
+    @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
+    public ResponseEntity<List<SessionAttendeeResponse>> sessionAttendees(@PathVariable String sessionId) {
+        return ResponseEntity.ok(reservationService.getSessionAttendees(sessionId));
+    }
+
+    /**
+     * 세션 대기자 목록 조회 (강사 전용).
+     */
+    @GetMapping("/sessions/{sessionId}/waitlist")
+    @PreAuthorize("hasRole('INSTRUCTOR') or hasRole('ADMIN')")
+    public ResponseEntity<List<SessionAttendeeResponse>> sessionWaitlist(@PathVariable String sessionId) {
+        return ResponseEntity.ok(reservationService.getSessionWaitlist(sessionId));
     }
 
     private GxSessionResponse toSessionResponse(GxSession s) {
@@ -93,6 +115,7 @@ public class GxController {
         Integer required = info != null ? info.getRequiredMembershipCount() : null;
         ClassStatus status = s.getStatus();
         String instructorUserId = info != null ? info.getInstructorUserId() : null;
+        int waitingCount = reservationService.countWaiting(s.getGxSessionId());
         return new GxSessionResponse(
                 s.getGxSessionId(),
                 s.getGxClassInfoId(),
@@ -103,7 +126,8 @@ public class GxController {
                 s.getReservedCount(),
                 required,
                 status != null ? status.name() : null,
-                instructorUserId
+                instructorUserId,
+                waitingCount
         );
     }
 

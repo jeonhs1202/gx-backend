@@ -1,8 +1,10 @@
 package org.escape.gx.service;
 
 import org.escape.gx.api.gx.dto.GxClassRequest;
+import org.escape.gx.api.gx.dto.SessionAttendeeResponse;
 import org.escape.gx.common.enums.ClassStatus;
 import org.escape.gx.common.enums.ReservationStatus;
+import org.escape.gx.domain.account.UserProfileRepository;
 import org.escape.gx.domain.gx.GxClassInfo;
 import org.escape.gx.domain.gx.GxSession;
 import org.escape.gx.domain.gx.Reservation;
@@ -18,6 +20,7 @@ import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.time.LocalTime;
 import java.util.List;
+import java.util.Optional;
 import java.util.UUID;
 
 /**
@@ -33,15 +36,18 @@ public class ReservationService {
     private final GxClassInfoRepository classInfoRepository;
     private final ReservationRepository reservationRepository;
     private final MembershipService membershipService;
+    private final UserProfileRepository userProfileRepository;
 
     public ReservationService(GxSessionRepository sessionRepository,
                                GxClassInfoRepository classInfoRepository,
                                ReservationRepository reservationRepository,
-                               MembershipService membershipService) {
+                               MembershipService membershipService,
+                               UserProfileRepository userProfileRepository) {
         this.sessionRepository = sessionRepository;
         this.classInfoRepository = classInfoRepository;
         this.reservationRepository = reservationRepository;
         this.membershipService = membershipService;
+        this.userProfileRepository = userProfileRepository;
     }
 
     /**
@@ -54,11 +60,11 @@ public class ReservationService {
     }
 
     /**
-     * 세션 예약. 회원권 차감 후 예약 생성.
+     * 세션 예약. 정원 여유 시 회원권 차감 후 예약 생성, 정원 마감 시 대기 등록(회원권 미차감).
      *
      * @param userId      사용자 ID
      * @param gxSessionId 세션 ID
-     * @return 생성된 예약. 회원권 부족 또는 정원 마감 시 예외 발생
+     * @return 생성된 예약(RESERVED) 또는 대기(WAITING). 수업 진행·종료 상태이거나 이미 예약/대기 중이면 예외 발생
      */
     @Transactional
     public Reservation reserve(String userId, String gxSessionId) {
@@ -66,18 +72,35 @@ public class ReservationService {
         if (session == null) {
             throw new IllegalArgumentException("세션을 찾을 수 없습니다.");
         }
-        if (!session.canReserve(null)) {
-            throw new IllegalStateException("예약 가능한 상태가 아닙니다.");
+        ClassStatus sessionStatus = session.getStatus();
+        if (sessionStatus == ClassStatus.IN_CLASS || sessionStatus == ClassStatus.TERMINATED) {
+            throw new IllegalStateException("예약 또는 대기 가능한 상태가 아닙니다.");
         }
         GxClassInfo info = classInfoRepository.findById(session.getGxClassInfoId()).orElse(null);
         int requiredCount = info != null ? info.getRequiredCount() : 1;
         int maxCapacity = info != null ? info.getMaxCapacity() : 20;
-        if (session.getReservedCount() != null && session.getReservedCount() >= maxCapacity) {
-            throw new IllegalStateException("정원이 마감되었습니다.");
-        }
+
+        boolean isFull = sessionStatus == ClassStatus.RESV_FULL
+                || (session.getReservedCount() != null && session.getReservedCount() >= maxCapacity);
+
         if (reservationRepository.existsByUserIdAndGxSessionIdAndStatus(userId, gxSessionId, ReservationStatus.RESERVED)) {
             throw new IllegalStateException("이미 예약한 세션입니다.");
         }
+        if (reservationRepository.existsByUserIdAndGxSessionIdAndStatus(userId, gxSessionId, ReservationStatus.WAITING)) {
+            throw new IllegalStateException("이미 대기 중인 세션입니다.");
+        }
+
+        if (isFull) {
+            Reservation waiting = Reservation.builder()
+                    .reservationId(UUID.randomUUID().toString())
+                    .userId(userId)
+                    .gxSessionId(gxSessionId)
+                    .deductCount(0)
+                    .status(ReservationStatus.WAITING)
+                    .build();
+            return reservationRepository.save(waiting);
+        }
+
         Membership membership = membershipService.deductForReservation(userId, requiredCount, gxSessionId, "GX 예약");
         if (membership == null) {
             throw new IllegalStateException("사용 가능한 회원권이 없습니다. 잔여 횟수와 유효기간을 확인해 주세요.");
@@ -85,7 +108,7 @@ public class ReservationService {
         session.incrementReservedCount();
         if (session.getReservedCount() >= maxCapacity) {
             session.setStatus(ClassStatus.RESV_FULL);
-        } else if (session.getStatus() == ClassStatus.BEFORE_RESV) {
+        } else if (sessionStatus == ClassStatus.BEFORE_RESV) {
             session.setStatus(ClassStatus.ON_RESV);
         }
         sessionRepository.save(session);
@@ -100,7 +123,7 @@ public class ReservationService {
     }
 
     /**
-     * 예약 취소. 회원권 복구 후 예약 상태 취소.
+     * 예약/대기 취소. RESERVED이면 회원권 복구 및 세션 인원 감소, WAITING이면 단순 취소.
      *
      * @param userId        사용자 ID
      * @param reservationId 예약 ID
@@ -112,26 +135,40 @@ public class ReservationService {
         if (!reservation.getUserId().equals(userId)) {
             throw new IllegalArgumentException("본인 예약만 취소할 수 있습니다.");
         }
-        if (!reservation.isReserved()) {
+        if (!reservation.isReserved() && !reservation.isWaiting()) {
             throw new IllegalStateException("이미 취소되었거나 완료된 예약입니다.");
         }
+        boolean wasReserved = reservation.isReserved();
         reservation.cancel();
         reservationRepository.save(reservation);
-        membershipService.refundForCancellation(
-                reservation.getMembershipId(),
-                userId,
-                reservation.getDeductCount() != null ? reservation.getDeductCount() : 1,
-                reservation.getGxSessionId(),
-                "GX 예약 취소"
-        );
-        GxSession session = sessionRepository.findByIdForUpdate(reservation.getGxSessionId()).orElse(null);
-        if (session != null) {
-            session.decrementReservedCount();
-            if (session.getStatus() == ClassStatus.RESV_FULL) {
-                session.setStatus(ClassStatus.ON_RESV);
+
+        if (wasReserved) {
+            membershipService.refundForCancellation(
+                    reservation.getMembershipId(),
+                    userId,
+                    reservation.getDeductCount() != null ? reservation.getDeductCount() : 1,
+                    reservation.getGxSessionId(),
+                    "GX 예약 취소"
+            );
+            GxSession session = sessionRepository.findByIdForUpdate(reservation.getGxSessionId()).orElse(null);
+            if (session != null) {
+                session.decrementReservedCount();
+                if (session.getStatus() == ClassStatus.RESV_FULL) {
+                    session.setStatus(ClassStatus.ON_RESV);
+                }
+                sessionRepository.save(session);
             }
-            sessionRepository.save(session);
         }
+    }
+
+    /**
+     * 예약 단건 조회 (세션·강의 정보 포함).
+     *
+     * @param reservationId 예약 ID
+     */
+    @Transactional(readOnly = true)
+    public Optional<Reservation> findWithDetails(String reservationId) {
+        return reservationRepository.findByIdWithDetails(reservationId);
     }
 
     /**
@@ -150,6 +187,54 @@ public class ReservationService {
     @Transactional(readOnly = true)
     public List<Reservation> findActiveByUserId(String userId) {
         return reservationRepository.findByUserIdAndStatus(userId, ReservationStatus.RESERVED);
+    }
+
+    /**
+     * 세션 대기 인원 수 조회.
+     *
+     * @param gxSessionId 세션 ID
+     */
+    @Transactional(readOnly = true)
+    public int countWaiting(String gxSessionId) {
+        return reservationRepository.countByGxSessionIdAndStatus(gxSessionId, ReservationStatus.WAITING);
+    }
+
+    /**
+     * 세션 예약자 목록 조회 (강사 전용).
+     *
+     * @param gxSessionId 세션 ID
+     * @return 예약자 이름·상태 목록
+     */
+    @Transactional(readOnly = true)
+    public List<SessionAttendeeResponse> getSessionAttendees(String gxSessionId) {
+        return reservationRepository
+                .findByGxSessionIdAndStatusOrderByCreatedAtAsc(gxSessionId, ReservationStatus.RESERVED)
+                .stream()
+                .map(r -> {
+                    String name = userProfileRepository.findById(r.getUserId())
+                            .map(p -> p.getName()).orElse(r.getUserId());
+                    return new SessionAttendeeResponse(r.getUserId(), name, r.getStatus().name(), r.getCreatedAt());
+                })
+                .toList();
+    }
+
+    /**
+     * 세션 대기자 목록 조회 (강사 전용).
+     *
+     * @param gxSessionId 세션 ID
+     * @return 대기자 이름·상태 목록
+     */
+    @Transactional(readOnly = true)
+    public List<SessionAttendeeResponse> getSessionWaitlist(String gxSessionId) {
+        return reservationRepository
+                .findByGxSessionIdAndStatusOrderByCreatedAtAsc(gxSessionId, ReservationStatus.WAITING)
+                .stream()
+                .map(r -> {
+                    String name = userProfileRepository.findById(r.getUserId())
+                            .map(p -> p.getName()).orElse(r.getUserId());
+                    return new SessionAttendeeResponse(r.getUserId(), name, r.getStatus().name(), r.getCreatedAt());
+                })
+                .toList();
     }
 
     // ─── 강의 관리 ──────────────────────────────────────────────────────────────
